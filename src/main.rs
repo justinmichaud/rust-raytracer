@@ -18,28 +18,7 @@ fn get_pixel(x : f32, y : f32, width : u32, height : u32, world : &Vec<WorldObje
     let ray = (camera_dir*focal_length + camera_right * (x as f32 * sensor_size[0])
         + camera_up * (-y as f32 * sensor_size[1])).normalize();
 
-    let mut intersect = None;
-    let mut obj = None;
-
-    for s in world.iter() {
-        match s.shape.intersect(s, camera_pos, ray) {
-            Some(i) => {
-                if intersect == None || i < intersect.unwrap() {
-                    intersect = Some(i);
-                    obj = Some(s);
-                }
-            }
-            None => ()
-        }
-    }
-
-    match intersect {
-        Some(t) => {
-            let s = obj.unwrap();
-            s.material.colour(&s, camera_pos + ray*t, ray)
-        },
-        None => Colour::new(0,0,0)
-    }
+    cast_ray(camera_pos, ray, 0, world, 1f32)
 }
 
 fn main() {
@@ -62,8 +41,23 @@ fn main() {
             shape: Box::new(Sphere {
                 radius : 1f32
             }),
-            material : Box::new(FlatMaterial {
-                colour: Colour::new(232, 104, 80),
+            material : Box::new(ReflectMaterial {
+                base: Box::new(FlatMaterial {
+                    colour: Colour::new(232, 104, 80),
+                }),
+                smoothness: 1f32
+            })
+        },
+        WorldObject {
+            position : WorldPoint::new(5f32, 0f32, 3f32),
+            shape: Box::new(Sphere {
+                radius : 1f32
+            }),
+            material : Box::new(ReflectMaterial {
+                base: Box::new(FlatMaterial {
+                    colour: Colour::new(232, 104, 80),
+                }),
+                smoothness: 1f32
             })
         },
         WorldObject {
