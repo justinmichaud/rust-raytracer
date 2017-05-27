@@ -1,5 +1,6 @@
 extern crate image;
 extern crate euclid;
+extern crate rand;
 
 mod world;
 
@@ -18,7 +19,7 @@ fn get_pixel(x : f32, y : f32, width : u32, height : u32, world : &Vec<WorldObje
     let ray = (camera_dir*focal_length + camera_right * (x as f32 * sensor_size[0])
         + camera_up * (-y as f32 * sensor_size[1])).normalize();
 
-    cast_ray(camera_pos, ray, 0, world, 1f32)
+    cast_ray(camera_pos, ray, 0, world)
 }
 
 fn main() {
@@ -45,7 +46,7 @@ fn main() {
                 base: Box::new(FlatMaterial {
                     colour: Colour::new(232, 104, 80),
                 }),
-                smoothness: 1f32
+                roughness: 1f32
             })
         },
         WorldObject {
@@ -57,7 +58,7 @@ fn main() {
                 base: Box::new(FlatMaterial {
                     colour: Colour::new(232, 104, 80),
                 }),
-                smoothness: 1f32
+                roughness: 300f32
             })
         },
         WorldObject {

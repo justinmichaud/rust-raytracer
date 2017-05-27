@@ -1,4 +1,6 @@
 use euclid::*;
+use rand;
+use rand::distributions::{IndependentSample, Range};
 
 pub struct WorldSpace;
 pub struct RGBSpace;
@@ -24,11 +26,37 @@ pub fn trace(pos : WorldPoint, dir : WorldVec, world : &Vec<WorldObject>) -> Opt
 }
 
 pub fn cast_ray(from : WorldPoint, ray : WorldVec, depth : u8,
-                world : &Vec<WorldObject>, smootheness : f32) -> Colour {
+                world : &Vec<WorldObject>) -> Colour {
     match trace(from + ray*0.01f32, ray, world) {
         Some((obj, t)) => obj.material.colour(obj, from + ray*t, ray, from + ray*0.01f32, world, depth),
         None => Colour::new(0,0,0)
     }
+}
+
+pub fn cast_rays(from : WorldPoint, ray : WorldVec, depth : u8,
+                 world : &Vec<WorldObject>, roughness : f32) -> Colour {
+    let mut avg = TypedPoint3D::new(0f32, 0f32, 0f32);
+    let mut n = 0f32;
+    let mut rng = rand::thread_rng();
+    let range = Range::new(0.0001f32, 0.001f32);
+
+    let samples = roughness.min(5f32).max(1f32) as u32;
+
+    for _ in 0..samples {
+        let dx = range.ind_sample(&mut rng)*roughness;
+        let dy = range.ind_sample(&mut rng)*roughness;
+        let dz = range.ind_sample(&mut rng)*roughness;
+
+        let r = (ray + WorldVec::new(dx,dy,dz)).normalize();
+        avg = avg + cast_ray(from, r, depth, world).cast::<f32>().unwrap();
+        n += 1f32;
+    }
+
+    (avg/n)
+        .max(TypedPoint3D::new(0f32,0f32,0f32))
+        .min(TypedPoint3D::new(255f32,255f32,255f32))
+        .round()
+        .cast::<u8>().unwrap()
 }
 
 pub trait Shape {
@@ -110,7 +138,7 @@ impl Material for GradientMaterial {
 }
 
 pub struct ReflectMaterial {
-    pub smoothness: f32,
+    pub roughness: f32,
     pub base : Box<Material>
 }
 
@@ -123,7 +151,7 @@ impl Material for ReflectMaterial {
 
         let norm = obj.normal(at);
         let ray = (incident-norm*2f32*incident.dot(norm)).normalize();
-        let reflect = cast_ray(at, ray, depth+1, world, self.smoothness).to_f32();
+        let reflect = cast_rays(at, ray, depth+1, world, self.roughness).to_f32();
         let base = self.base.colour(obj, at, incident, incident_from, world, depth).to_f32();
 
         Colour::new((reflect.x*base.x/255f32).min(255f32).max(0f32) as u8,

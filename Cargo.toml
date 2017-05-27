@@ -6,3 +6,4 @@ authors = ["justin"]
 [dependencies]
 image = "*"
 euclid = "*"
+rand = "0.3"
