@@ -13,8 +13,8 @@ fn get_pixel(x : f32, y : f32, width : u32, height : u32, world : &Vec<WorldObje
     let sensor_size = [1f32, height as f32 / width as f32 * 1f32];
     let camera_pos = WorldPoint::new(-5f32, 0f32, 0f32);
     let camera_dir = WorldVec::new(1f32, 0f32, 0f32).normalize();
-    let camera_up = WorldVec::new(0f32, 1f32, 0f32).normalize();
-    let camera_right = camera_dir.cross(camera_up);
+    let camera_right = WorldVec::new(0f32, 0f32, 1f32).normalize();
+    let camera_up = camera_right.cross(camera_dir);
 
     let ray = (camera_dir*focal_length + camera_right * (x as f32 * sensor_size[0])
         + camera_up * (-y as f32 * sensor_size[1])).normalize();
@@ -23,7 +23,7 @@ fn get_pixel(x : f32, y : f32, width : u32, height : u32, world : &Vec<WorldObje
 }
 
 fn main() {
-    let mut imagebuf = image::ImageBuffer::new(854, 480);
+    let mut imagebuf = image::ImageBuffer::new(1920, 1080);
     let width = imagebuf.width();
     let height = imagebuf.height();
 
@@ -51,23 +51,7 @@ fn main() {
                 shininess: 100f32,
                 specular_amount: 1f32,
                 reflectivity: 1f32,
-                roughness: 1f32
-            }),
-            light: false
-        },
-        WorldObject {
-            position : WorldPoint::new(8f32, 0f32, 0f32),
-            shape: Box::new(Sphere {
-                radius : 1f32
-            }),
-            material : Box::new(LitMaterial {
-                absorb: Box::new(FlatMaterial {
-                    colour: Colour::new(232, 104, 80),
-                }),
-                emit: Box::new(FlatMaterial { colour: Colour::new(10, 10, 10) }),
-                shininess: 100f32,
-                specular_amount: 1f32,
-                reflectivity: 1f32,
+                refractivity: 0f32,
                 roughness: 1f32
             }),
             light: false
@@ -85,6 +69,7 @@ fn main() {
                 shininess: 100f32,
                 specular_amount: 1f32,
                 reflectivity: 1f32,
+                refractivity: 0f32,
                 roughness: 100f32
             }),
             light: false
@@ -96,12 +81,13 @@ fn main() {
             }),
             material : Box::new(LitMaterial {
                 absorb: Box::new(FlatMaterial {
-                    colour: Colour::new(232, 104, 80),
+                    colour: Colour::new(0, 0, 0),
                 }),
-                emit: Box::new(FlatMaterial { colour: Colour::new(10, 10, 10) }),
+                emit: Box::new(FlatMaterial { colour: Colour::new(0, 0, 0) }),
                 shininess: 100f32,
                 specular_amount: 1f32,
-                reflectivity: 1f32,
+                reflectivity: 0f32,
+                refractivity: 1f32,
                 roughness: 1f32
             }),
             light: false
@@ -126,6 +112,7 @@ fn main() {
                 shininess: 10f32,
                 specular_amount: 0f32,
                 reflectivity: 0f32,
+                refractivity: 0f32,
                 roughness: 1f32
             }),
             light: false

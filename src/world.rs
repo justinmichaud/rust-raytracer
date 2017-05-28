@@ -28,7 +28,7 @@ pub fn trace(pos : WorldPoint, dir : WorldVec, world : &Vec<WorldObject>) -> Opt
 pub fn cast_ray(from : WorldPoint, ray : WorldVec, depth : u8,
                 world : &Vec<WorldObject>) -> Colour {
     match trace(from + ray*0.01f32, ray, world) {
-        Some((obj, t)) => obj.material.colour(obj, from + ray*t, ray, from + ray*0.01f32, world, depth),
+        Some((obj, t)) => obj.material.colour(obj, from + ray*t, from, ray, world, depth),
         None => Colour::new(0,0,0)
     }
 }
@@ -149,20 +149,24 @@ pub struct LitMaterial {
     pub shininess : f32,
     pub specular_amount : f32,
     pub reflectivity : f32,
+    pub refractivity : f32,
     pub roughness : f32
 }
 
 impl Material for LitMaterial {
+
+
+
     fn colour(&self, obj : &WorldObject, at : WorldPoint,
-              incident : WorldVec, incident_from : WorldPoint,
+              incident_from : WorldVec, incident : WorldPoint,
               world : &Vec<WorldObject>, depth : u8) -> Colour {
-        if depth > 3 {
+        if depth > 5 {
             return Colour::new(0,0,0);
         }
 
         let norm = obj.normal(at);
-        let emitted = self.emit.colour(obj, at, incident, incident_from, world, depth+1).to_f32();
-        let base = self.absorb.colour(obj, at, incident, incident_from, world, depth+1).to_f32();
+        let mut emitted = self.emit.colour(obj, at, incident_from, incident, world, depth+1).to_f32();
+        let base = self.absorb.colour(obj, at, incident_from, incident, world, depth+1).to_f32();
 
         let mut absorbed = TypedPoint3D::new(0f32,0f32,0f32);
         let mut specular = TypedPoint3D::new(0f32,0f32,0f32);
@@ -180,7 +184,7 @@ impl Material for LitMaterial {
                         continue;
                     }
                     let light_colour = s.material
-                        .colour(s, at + ray * t, ray, at + ray * 0.01f32, world, depth + 1)
+                        .colour(s, at + ray * t, at, ray, world, depth + 1)
                         .to_f32();
 
                     absorbed = absorbed + light_colour * ray.dot(norm).max(0f32);
@@ -191,11 +195,18 @@ impl Material for LitMaterial {
             }
         }
 
+        // This colour mixing code is a tad fucked
         if self.reflectivity > 0f32 {
             let reflected_ray = obj.reflect_ray(at, incident);
             absorbed = absorbed
                 + cast_rays(at, reflected_ray, depth + 1, world, self.roughness)
                 .to_f32() * self.reflectivity;
+        }
+
+        if self.refractivity > 0f32 {
+            emitted = emitted
+                + refract_colour(obj, at, incident_from, incident, world, depth+1)
+                .to_f32() * self.refractivity;
         }
 
         let reflected = TypedPoint3D::new(absorbed.x*base.x/255f32,
@@ -208,6 +219,44 @@ impl Material for LitMaterial {
             .round()
             .cast::<u8>().unwrap()
     }
+}
+
+fn transmit(n1 : f32, n2 : f32, mut norm : WorldVec, incident_ray : WorldVec) -> WorldVec {
+    //https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-shading/reflection-refraction-fresnel
+    let mut eta = n1/n2;
+    let mut c1 = norm.dot(incident_ray).min(1f32).max(-1f32);
+    if c1 < 0f32 {
+        c1 = -c1;
+        eta = 1f32/eta;
+        norm = norm * -1f32;
+    }
+    let c2 = (1f32 - eta*eta*(1f32-c1*c1)).sqrt();
+    (incident_ray*eta + norm*(eta*c1-c2)).normalize()
+}
+
+fn refract_colour(obj : &WorldObject, at : WorldPoint, incident_from : WorldPoint,
+                  incident_ray : WorldVec, world : &Vec<WorldObject>, depth : u8) -> Colour {
+    if depth > 5 {
+        return Colour::new(0,0,0);
+    }
+
+    let n = 1.45f32;
+
+    //Simplifying assumption: Assume we start and exit outside the object
+    let trans_ray = incident_ray;//transmit(1f32, n, obj.normal(at), incident_ray);
+    let (pos, dir) = match trace(at + trans_ray*0.011f32, trans_ray, world) {
+        Some((int, t)) => {
+            if int as *const _ == obj as *const _ {
+                (at + trans_ray*t, transmit(1f32, n, obj.normal(at+trans_ray*t), trans_ray))
+            }
+                else {
+                    (at, trans_ray)
+                }
+        }
+        _ => (at, trans_ray)
+    };
+
+    cast_ray(pos+dir*0.004, dir, depth+1, world)
 }
 
 pub struct Sphere {
