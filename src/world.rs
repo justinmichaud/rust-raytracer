@@ -76,7 +76,8 @@ pub trait Material {
 pub struct WorldObject {
     pub position : WorldPoint,
     pub shape : Box<Shape>,
-    pub material : Box<Material>
+    pub material : Box<Material>,
+    pub light : bool
 }
 
 impl WorldObject {
@@ -90,6 +91,11 @@ impl WorldObject {
 
     pub fn contains(&self, pos : WorldPoint) -> bool {
         self.shape.contains(self, pos)
+    }
+
+    pub fn reflect_ray(&self, at : WorldPoint, incident : WorldVec) -> WorldVec {
+        let norm = self.normal(at);
+        incident-norm*2f32*incident.dot(norm)
     }
 }
 
@@ -137,26 +143,70 @@ impl Material for GradientMaterial {
     }
 }
 
-pub struct ReflectMaterial {
-    pub roughness: f32,
-    pub base : Box<Material>
+pub struct LitMaterial {
+    pub emit : Box<Material>,
+    pub absorb: Box<Material>,
+    pub shininess : f32,
+    pub specular_amount : f32,
+    pub reflectivity : f32,
+    pub roughness : f32
 }
 
-impl Material for ReflectMaterial {
+impl Material for LitMaterial {
     fn colour(&self, obj : &WorldObject, at : WorldPoint,
-              incident : WorldVec, incident_from : WorldPoint, world : &Vec<WorldObject>, depth : u8) -> Colour {
+              incident : WorldVec, incident_from : WorldPoint,
+              world : &Vec<WorldObject>, depth : u8) -> Colour {
         if depth > 3 {
             return Colour::new(0,0,0);
         }
 
         let norm = obj.normal(at);
-        let ray = (incident-norm*2f32*incident.dot(norm)).normalize();
-        let reflect = cast_rays(at, ray, depth+1, world, self.roughness).to_f32();
-        let base = self.base.colour(obj, at, incident, incident_from, world, depth).to_f32();
+        let emitted = self.emit.colour(obj, at, incident, incident_from, world, depth+1).to_f32();
+        let base = self.absorb.colour(obj, at, incident, incident_from, world, depth+1).to_f32();
 
-        Colour::new((reflect.x*base.x/255f32).min(255f32).max(0f32) as u8,
-                    (reflect.y*base.y/255f32).min(255f32).max(0f32) as u8,
-                    (reflect.z*base.z/255f32).min(255f32).max(0f32) as u8)
+        let mut absorbed = TypedPoint3D::new(0f32,0f32,0f32);
+        let mut specular = TypedPoint3D::new(0f32,0f32,0f32);
+
+        for s in world {
+            if !s.light || s as *const _ == obj as *const _ {
+                continue;
+            }
+
+            // Assume that the source is a point light
+            let ray = (s.position - at).normalize();
+            match trace(at+ray*0.01f32, ray, world) {
+                Some((intersected, t)) => {
+                    if s as *const _ != intersected as *const _ {
+                        continue;
+                    }
+                    let light_colour = s.material
+                        .colour(s, at + ray * t, ray, at + ray * 0.01f32, world, depth + 1)
+                        .to_f32();
+
+                    absorbed = absorbed + light_colour * ray.dot(norm).max(0f32);
+                    specular = specular + light_colour
+                        * ray.dot(obj.reflect_ray(at, ray*-1f32)).max(0f32).powf(self.shininess);
+                },
+                _ => ()
+            }
+        }
+
+        if self.reflectivity > 0f32 {
+            let reflected_ray = obj.reflect_ray(at, incident);
+            absorbed = absorbed
+                + cast_rays(at, reflected_ray, depth + 1, world, self.roughness)
+                .to_f32() * self.reflectivity;
+        }
+
+        let reflected = TypedPoint3D::new(absorbed.x*base.x/255f32,
+                                          absorbed.y*base.y/255f32,
+                                          absorbed.z*base.z/255f32);
+
+        (emitted + specular*self.specular_amount + reflected)
+            .max(TypedPoint3D::new(0f32,0f32,0f32))
+            .min(TypedPoint3D::new(255f32,255f32,255f32))
+            .round()
+            .cast::<u8>().unwrap()
     }
 }
 

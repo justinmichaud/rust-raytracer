@@ -29,37 +29,82 @@ fn main() {
 
     let world = vec![
         WorldObject {
-            position : WorldPoint::new(2f32, 0.6f32, -0.6f32),
+            position : WorldPoint::new(-2f32, 10f32, -2f32),
             shape: Box::new(Sphere {
-                radius : 0.2f32
+                radius : 0.02f32
             }),
             material : Box::new(FlatMaterial {
-                colour: Colour::new(212, 165, 57),
-            })
+                colour: Colour::new(200,200,200),
+            }),
+            light: true
         },
         WorldObject {
             position : WorldPoint::new(4f32, 0f32, 0f32),
             shape: Box::new(Sphere {
                 radius : 1f32
             }),
-            material : Box::new(ReflectMaterial {
-                base: Box::new(FlatMaterial {
+            material : Box::new(LitMaterial {
+                absorb: Box::new(FlatMaterial {
                     colour: Colour::new(232, 104, 80),
                 }),
+                emit: Box::new(FlatMaterial { colour: Colour::new(10, 10, 10) }),
+                shininess: 100f32,
+                specular_amount: 1f32,
+                reflectivity: 1f32,
                 roughness: 1f32
-            })
+            }),
+            light: false
+        },
+        WorldObject {
+            position : WorldPoint::new(8f32, 0f32, 0f32),
+            shape: Box::new(Sphere {
+                radius : 1f32
+            }),
+            material : Box::new(LitMaterial {
+                absorb: Box::new(FlatMaterial {
+                    colour: Colour::new(232, 104, 80),
+                }),
+                emit: Box::new(FlatMaterial { colour: Colour::new(10, 10, 10) }),
+                shininess: 100f32,
+                specular_amount: 1f32,
+                reflectivity: 1f32,
+                roughness: 1f32
+            }),
+            light: false
         },
         WorldObject {
             position : WorldPoint::new(5f32, 0f32, 3f32),
             shape: Box::new(Sphere {
-                radius : 1f32
+                radius : 0.6f32
             }),
-            material : Box::new(ReflectMaterial {
-                base: Box::new(FlatMaterial {
+            material : Box::new(LitMaterial {
+                absorb: Box::new(FlatMaterial {
                     colour: Colour::new(232, 104, 80),
                 }),
-                roughness: 300f32
-            })
+                emit: Box::new(FlatMaterial { colour: Colour::new(10, 10, 10) }),
+                shininess: 100f32,
+                specular_amount: 1f32,
+                reflectivity: 1f32,
+                roughness: 100f32
+            }),
+            light: false
+        },
+        WorldObject {
+            position : WorldPoint::new(5f32, 0f32, -3f32),
+            shape: Box::new(Sphere {
+                radius : 0.6f32
+            }),
+            material : Box::new(LitMaterial {
+                absorb: Box::new(FlatMaterial {
+                    colour: Colour::new(232, 104, 80),
+                }),
+                emit: Box::new(FlatMaterial { colour: Colour::new(10, 10, 10) }),
+                shininess: 100f32,
+                specular_amount: 1f32,
+                reflectivity: 1f32,
+                roughness: 1f32
+            }),
+            light: false
         },
         WorldObject {
             position : WorldPoint::new(3f32, -2f32, 0f32),
@@ -67,11 +112,23 @@ fn main() {
                 width: 50f32,
                 height: 15f32
             }),
-            material : Box::new(CheckerboardMaterial {
-                colour1: Colour::new(200, 0, 0),
-                colour2: Colour::new(0, 0, 0),
-                repeat: 1f32
-            })
+            material : Box::new(LitMaterial {
+                absorb: Box::new(CheckerboardMaterial {
+                    colour1: Colour::new(230, 10, 10),
+                    colour2: Colour::new(0, 0, 0),
+                    repeat: 1f32
+                }),
+                emit: Box::new(CheckerboardMaterial {
+                    colour1: Colour::new(20, 0, 0),
+                    colour2: Colour::new(0, 0, 0),
+                    repeat: 1f32
+                }),
+                shininess: 10f32,
+                specular_amount: 0f32,
+                reflectivity: 0f32,
+                roughness: 1f32
+            }),
+            light: false
         },
         WorldObject {
             position : WorldPoint::new(0f32, 0f32, 0f32),
@@ -83,8 +140,10 @@ fn main() {
                 from_y: -10f32,
                 to: Colour::new(135, 206, 235),
                 to_y: 3f32
-            })
-        },];
+            }),
+            light: false
+        },
+    ];
 
     for (x,y,pixel) in imagebuf.enumerate_pixels_mut() {
         let colour = get_pixel(x as f32 / width as f32 - 0.5,
